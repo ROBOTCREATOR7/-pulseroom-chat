@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseRoom Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="grain"></div>
+  <main class="app-shell">
+    <section class="hero-band">
+      <div>
+        <p class="eyebrow">Local Group Chat</p>
+        <h1>PulseRoom</h1>
+      </div>
+      <p class="hero-copy">
+        Set your own name, create groups, and chat in a simple WhatsApp-style layout. Open this app in multiple tabs to simulate different friends talking in the same space.
+      </p>
+    </section>
+
+    <section class="topbar" aria-label="Chat setup">
+      <div class="field">
+        <label for="profileSelect">You are</label>
+        <select id="profileSelect"></select>
+      </div>
+      <div class="field">
+        <label for="nameInput">Display Name</label>
+        <input id="nameInput" type="text" maxlength="20" placeholder="Your name" />
+      </div>
+      <div class="field">
+        <label for="roomSelect">Group</label>
+        <select id="roomSelect"></select>
+      </div>
+      <div class="field field-grow">
+        <label for="statusInput">Status</label>
+        <input id="statusInput" type="text" maxlength="48" placeholder="Ready to hang" />
+      </div>
+      <div class="topbar-actions">
+        <button id="newRoomBtn" class="ghost-btn" type="button">Create Group</button>
+        <button id="seedBtn" class="primary-btn" type="button">Seed Conversation</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <aside class="sidebar">
+        <div class="panel-header">
+          <h2>Friends</h2>
+          <span id="presenceCount">0 online</span>
+        </div>
+        <div id="friendList" class="friend-list"></div>
+
+        <div class="panel-header room-header">
+          <h2>Groups</h2>
+          <span id="roomCount">0 active</span>
+        </div>
+        <div id="roomList" class="room-list"></div>
+      </aside>
+
+      <section class="chat-panel">
+        <header class="chat-header">
+          <div>
+            <p id="roomBadge" class="room-badge">Group</p>
+            <h2 id="roomTitle">Select a group</h2>
+          </div>
+          <p id="roomMeta" class="room-meta">No messages yet.</p>
+        </header>
+
+        <div id="messageList" class="message-list" aria-live="polite"></div>
+
+        <form id="composer" class="composer">
+          <label class="sr-only" for="messageInput">Message</label>
+          <textarea id="messageInput" rows="1" maxlength="280" placeholder="Say something nice, chaotic, or useful"></textarea>
+          <div class="composer-actions">
+            <span id="composerHint" class="composer-hint">280 max</span>
+            <button class="primary-btn" type="submit">Send</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
