@@ -22,7 +22,7 @@ if (!fs.existsSync(DATA_DIR)) {
 function createDefaultData() {
   return {
     groups: [
-      { id: "school-friends", name: "School Friends", createdAt: Date.now() }
+      { id: "school-friends", name: "School Friends", createdAt: Date.now(), ownerName: "", private: true, memberNames: [] }
     ],
     users: [],
     messages: []
@@ -46,6 +46,13 @@ function loadData() {
 }
 
 let data = loadData();
+data.groups = data.groups.map((group) => ({
+  ownerName: "",
+  private: true,
+  memberNames: [],
+  ...group,
+  memberNames: Array.isArray(group.memberNames) ? group.memberNames : []
+}));
 const clients = new Set();
 
 function saveData() {
@@ -120,6 +127,24 @@ function upsertUser({ name, status, groupId }) {
   return created;
 }
 
+function groupById(groupId) {
+  return data.groups.find((group) => group.id === groupId);
+}
+
+function canAccessGroup(group, name) {
+  if (!group) {
+    return false;
+  }
+  const lowered = String(name || "").trim().toLowerCase();
+  if (!lowered) {
+    return false;
+  }
+  if (!group.private) {
+    return true;
+  }
+  return group.memberNames.some((memberName) => memberName.toLowerCase() === lowered);
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -149,6 +174,11 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/api/presence") {
     try {
       const body = await readBody(req);
+      const group = groupById(body.groupId);
+      if (!canAccessGroup(group, body.name)) {
+        sendJson(res, 403, { error: "You are not allowed in this group" });
+        return;
+      }
       const user = upsertUser(body);
       if (!user) {
         sendJson(res, 400, { error: "Name and group are required" });
@@ -175,7 +205,10 @@ const server = http.createServer(async (req, res) => {
       const group = {
         id: `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`,
         name,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        ownerName: String(body.creatorName || "").trim(),
+        private: body.private !== false,
+        memberNames: [String(body.creatorName || "").trim()].filter(Boolean)
       };
 
       data.groups.unshift(group);
@@ -209,6 +242,12 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      const group = groupById(groupId);
+      if (!canAccessGroup(group, userName)) {
+        sendJson(res, 403, { error: "You are not allowed in this group" });
+        return;
+      }
+
       upsertUser({
         name: userName,
         status: "Online",
@@ -230,6 +269,49 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 201, { ok: true, message });
     } catch {
       sendJson(res, 400, { error: "Invalid message payload" });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/group-members") {
+    try {
+      const body = await readBody(req);
+      const group = groupById(String(body.groupId || "").trim());
+      const ownerName = String(body.ownerName || "").trim();
+      const memberName = String(body.memberName || "").trim();
+      const action = String(body.action || "").trim();
+
+      if (!group || !ownerName || !memberName || !action) {
+        sendJson(res, 400, { error: "Group, owner, member name, and action are required" });
+        return;
+      }
+
+      if (group.ownerName.toLowerCase() !== ownerName.toLowerCase()) {
+        sendJson(res, 403, { error: "Only the group owner can change members" });
+        return;
+      }
+
+      if (action === "add") {
+        if (!group.memberNames.some((name) => name.toLowerCase() === memberName.toLowerCase())) {
+          group.memberNames.push(memberName);
+        }
+      } else if (action === "remove") {
+        if (group.ownerName.toLowerCase() === memberName.toLowerCase()) {
+          sendJson(res, 400, { error: "You cannot remove the group owner" });
+          return;
+        }
+        group.memberNames = group.memberNames.filter((name) => name.toLowerCase() !== memberName.toLowerCase());
+        data.users = data.users.filter((user) => !(user.groupId === group.id && user.name.toLowerCase() === memberName.toLowerCase()));
+      } else {
+        sendJson(res, 400, { error: "Unknown member action" });
+        return;
+      }
+
+      saveData();
+      broadcast();
+      sendJson(res, 200, { ok: true, group });
+    } catch {
+      sendJson(res, 400, { error: "Invalid member payload" });
     }
     return;
   }
