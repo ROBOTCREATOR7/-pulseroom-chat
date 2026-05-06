@@ -54,6 +54,17 @@
         <div id="friendList" class="friend-list"></div>
 
         <div class="panel-header room-header">
+          <h2>Members</h2>
+          <span id="memberCount">0 allowed</span>
+        </div>
+        <div id="memberList" class="member-list"></div>
+        <form id="memberForm" class="member-form">
+          <input id="memberNameInput" type="text" maxlength="20" placeholder="Add dad, mom, sister..." />
+          <button id="addMemberBtn" class="ghost-btn" type="submit">Add Member</button>
+        </form>
+        <p id="memberNotice" class="member-notice"></p>
+
+        <div class="panel-header room-header">
           <h2>Groups</h2>
           <span id="roomCount">0 active</span>
         </div>
