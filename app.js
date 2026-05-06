@@ -17,6 +17,12 @@ const els = {
   newRoomBtn: document.querySelector("#newRoomBtn"),
   seedBtn: document.querySelector("#seedBtn"),
   friendList: document.querySelector("#friendList"),
+  memberList: document.querySelector("#memberList"),
+  memberForm: document.querySelector("#memberForm"),
+  memberNameInput: document.querySelector("#memberNameInput"),
+  addMemberBtn: document.querySelector("#addMemberBtn"),
+  memberCount: document.querySelector("#memberCount"),
+  memberNotice: document.querySelector("#memberNotice"),
   roomList: document.querySelector("#roomList"),
   presenceCount: document.querySelector("#presenceCount"),
   roomCount: document.querySelector("#roomCount"),
@@ -78,6 +84,21 @@ function currentUsers() {
   return state.users
     .filter((user) => user.groupId === state.me.groupId)
     .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+}
+
+function groupMembers(group) {
+  return group?.memberNames || [];
+}
+
+function isGroupOwner(group) {
+  return Boolean(group && state.me.name.trim() && group.ownerName?.toLowerCase() === state.me.name.trim().toLowerCase());
+}
+
+function isAllowedInGroup(group) {
+  if (!group) {
+    return false;
+  }
+  return groupMembers(group).some((name) => name.toLowerCase() === myDisplayName().toLowerCase());
 }
 
 function relativeMeta(messages) {
@@ -174,11 +195,15 @@ function renderGroups() {
     chip.className = `room-chip${group.id === state.me.groupId ? " active" : ""}`;
     chip.innerHTML = `
       <h3>${escapeHtml(group.name)}</h3>
-      <p class="room-chip-meta">${relativeMeta(groupMessages)}</p>
+      <p class="room-chip-meta">${group.private ? "Private" : "Open"} - ${relativeMeta(groupMessages)}</p>
     `;
     chip.addEventListener("click", async () => {
       state.me.groupId = group.id;
-      await syncPresence();
+      try {
+        await syncPresence();
+      } catch (error) {
+        els.memberNotice.textContent = error.message;
+      }
       renderApp();
     });
     els.roomList.appendChild(chip);
@@ -204,6 +229,11 @@ function renderMessages() {
   els.roomTitle.textContent = `${group.name} group`;
   els.roomMeta.textContent = relativeMeta(messages);
 
+  if (!isAllowedInGroup(group)) {
+    els.messageList.innerHTML = "<p class=\"empty-chat\">You are not on this group's allowed member list yet. Ask the group owner to add your name.</p>";
+    return;
+  }
+
   if (!messages.length) {
     els.messageList.innerHTML = '<p class="empty-chat">This group is quiet. Send the first message and wake it up.</p>';
     return;
@@ -228,17 +258,65 @@ function renderMessages() {
   els.messageList.scrollTop = els.messageList.scrollHeight;
 }
 
+function renderMembers() {
+  const group = currentGroup();
+  els.memberList.innerHTML = "";
+
+  if (!group) {
+    els.memberCount.textContent = "0 allowed";
+    els.memberNotice.textContent = "";
+    return;
+  }
+
+  const members = groupMembers(group);
+  els.memberCount.textContent = `${members.length} allowed`;
+
+  members.forEach((memberName) => {
+    const chip = document.createElement("article");
+    chip.className = "member-chip";
+    const ownerLabel = group.ownerName?.toLowerCase() === memberName.toLowerCase() ? "Owner" : "Member";
+    chip.innerHTML = `
+      <div>
+        <h3>${escapeHtml(memberName)}</h3>
+        <p>${ownerLabel}</p>
+      </div>
+    `;
+
+    if (isGroupOwner(group) && group.ownerName?.toLowerCase() !== memberName.toLowerCase()) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost-btn";
+      button.textContent = "Remove";
+      button.addEventListener("click", async () => {
+        await updateMember(memberName, "remove");
+      });
+      chip.appendChild(button);
+    }
+
+    els.memberList.appendChild(chip);
+  });
+
+  const owner = isGroupOwner(group);
+  els.memberForm.style.display = owner ? "grid" : "none";
+  els.memberNotice.textContent = owner
+    ? "Only you can add or remove members in this group."
+    : `Only ${group.ownerName} can change who is allowed in this group.`;
+}
+
 function renderInputs() {
+  const group = currentGroup();
   els.nameInput.value = state.me.name;
   const me = currentUsers().find((user) => user.name === myDisplayName());
   els.statusInput.value = me?.status || "";
   els.composerHint.textContent = `${280 - els.messageInput.value.length} left`;
+  els.messageInput.disabled = !group || !isAllowedInGroup(group);
 }
 
 function renderApp() {
   renderProfileSelect();
   renderGroupSelect();
   renderFriends();
+  renderMembers();
   renderGroups();
   renderMessages();
   renderInputs();
@@ -277,7 +355,8 @@ async function createGroup() {
     method: "POST",
     body: JSON.stringify({
       name: name.trim(),
-      creatorName: state.me.name.trim()
+      creatorName: state.me.name.trim(),
+      private: true
     })
   });
 
@@ -306,6 +385,30 @@ async function sendMessage(text) {
       text
     })
   });
+}
+
+async function updateMember(memberName, action) {
+  const group = currentGroup();
+  if (!group) {
+    return;
+  }
+
+  await api("/api/group-members", {
+    method: "POST",
+    body: JSON.stringify({
+      groupId: group.id,
+      ownerName: state.me.name.trim(),
+      memberName,
+      action
+    })
+  });
+
+  if (action === "remove" && memberName.toLowerCase() === myDisplayName().toLowerCase()) {
+    state.me.groupId = state.groups.find((item) => item.id !== group.id)?.id || null;
+  }
+
+  els.memberNameInput.value = "";
+  await refreshData();
 }
 
 async function seedConversation() {
@@ -364,6 +467,15 @@ els.statusInput.addEventListener("change", async () => {
 
 els.newRoomBtn.addEventListener("click", createGroup);
 els.seedBtn.addEventListener("click", seedConversation);
+els.memberForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const memberName = els.memberNameInput.value.trim();
+  if (!memberName) {
+    return;
+  }
+
+  await updateMember(memberName, "add");
+});
 
 els.composer.addEventListener("submit", async (event) => {
   event.preventDefault();
