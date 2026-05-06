@@ -219,20 +219,23 @@ button:hover {
 }
 
 .friend-list,
-.room-list {
+.room-list,
+.member-list {
   display: grid;
   gap: 10px;
 }
 
 .friend-card,
 .room-chip,
+.member-chip,
 .message-bubble {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.72);
 }
 
 .friend-card,
-.room-chip {
+.room-chip,
+.member-chip {
   border-radius: 16px;
   padding: 14px;
 }
@@ -255,9 +258,41 @@ button:hover {
 }
 
 .friend-card h3,
-.room-chip h3 {
+.room-chip h3,
+.member-chip h3 {
   margin: 0 0 4px;
   font-size: 0.98rem;
+}
+
+.member-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.member-chip p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.member-chip button {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.member-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.member-notice {
+  margin: -6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  min-height: 24px;
 }
 
 .room-chip {
@@ -422,6 +457,10 @@ textarea {
   }
 
   .topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .member-form {
     grid-template-columns: 1fr;
   }
 
